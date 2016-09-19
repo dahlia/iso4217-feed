@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 import datetime
+import logging
 import re
 
+from google.appengine.api.memcache import Client
 from lxml.etree import parse
 
 
 ISO4217_XML_URL = 'http://www.currency-iso.org/dam/downloads/lists/list_one.xml'  # noqa: E501
 DATE_RE = re.compile(r'^\s*(?P<year>\d{4})-(?P<month>\d\d)-(?P<day>\d\d)\s*$')
 FEED_PATH = '/feed.xml'
+MEMCACHE_KEY = 'iso4217_updated'
+logger = logging.getLogger(__name__)
 
 
 def get_updated():
@@ -31,7 +35,12 @@ def app(environ, start_response):
         ])
         return '',
     url = urljoin(scheme, host, path)
-    updated = get_updated()
+    memcache = Client()
+    updated = memcache.get(MEMCACHE_KEY)
+    logger.info('Cache (%r): %r', MEMCACHE_KEY, updated)
+    if updated is None:
+        updated = get_updated()
+        memcache.set(MEMCACHE_KEY, updated, 3600)
     start_response('200 OK', [('Content-Type', 'application/atom+xml')])
     return '''\
 <?xml version="1.0" encoding="utf-8"?>
