@@ -4,7 +4,8 @@ import logging
 import re
 
 from google.appengine.api.memcache import Client
-from lxml.etree import parse
+from google.appengine.api.urlfetch import fetch
+from lxml.etree import fromstring
 
 
 ISO4217_XML_URL = 'http://www.currency-iso.org/dam/downloads/lists/list_one.xml'  # noqa: E501
@@ -15,8 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_updated():
-    tree = parse(ISO4217_XML_URL)
-    match = DATE_RE.match(tree.getroot().attrib['Pblshd'])
+    response = fetch(ISO4217_XML_URL)
+    assert response.status_code == 200
+    doc = fromstring(response.content)
+    match = DATE_RE.match(doc.attrib['Pblshd'])
     kwargs = {k: int(v) for k, v in match.groupdict().iteritems()}
     return datetime.date(**kwargs)
 
